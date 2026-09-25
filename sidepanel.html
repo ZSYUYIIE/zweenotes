@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ZweeNotes Study Panel</title>
+  <link rel="stylesheet" href="sidepanel.css">
+</head>
+<body>
+  <header class="header">
+    <div class="brand-mark" aria-hidden="true">Z</div>
+    <div class="brand-copy">
+      <h1>ZweeNotes</h1>
+      <p>NUS course companion</p>
+    </div>
+    <button id="refresh" class="icon-button" type="button" aria-label="Refresh course context" title="Refresh">↻</button>
+  </header>
+
+  <main>
+    <div id="status" class="status" role="status">Finding this tab’s study context…</div>
+    <section id="course-card" class="card" hidden>
+      <div class="eyebrow">CANVAS COURSE</div>
+      <h2 id="course-name"></h2>
+      <div id="course-id" class="muted"></div>
+      <div class="divider"></div>
+      <div class="eyebrow">CURRENT CANVAS ITEM</div>
+      <h3 id="item-title"></h3>
+      <div class="meta-row">
+        <span id="item-type" class="tag"></span>
+        <span id="module-name" class="muted"></span>
+      </div>
+      <a id="canvas-link" class="text-link" target="_blank" rel="noreferrer">Open this Canvas item ↗</a>
+    </section>
+
+    <section id="recording-card" class="card" hidden>
+      <div class="eyebrow">PANOPTO RECORDING</div>
+      <h2 id="recording-title"></h2>
+      <div id="recording-id" class="muted"></div>
+    </section>
+
+    <section id="empty-state" class="empty-state" hidden>
+      <div class="empty-icon" aria-hidden="true">⌕</div>
+      <h2>No course context yet</h2>
+      <p>Open a course or item on <strong>NUS Canvas</strong>, or open a Panopto recording launched from Canvas. This panel will show the context for the current tab.</p>
+    </section>
+
+    <aside class="prototype-note">
+      <span class="note-dot" aria-hidden="true"></span>
+      <div><strong>Prototype</strong><br>No AI processing or content upload is enabled.</div>
+    </aside>
+  </main>
+
+  <footer>Course context stays in this browser session.</footer>
+  <script src="sidepanel.js"></script>
+</body>
+</html>

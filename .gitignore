@@ -1,0 +1,10 @@
+# Local extension packages and signing material
+*.zip
+*.crx
+*.pem
+
+# Operating system and editor files
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
