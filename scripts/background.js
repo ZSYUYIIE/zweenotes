@@ -55,8 +55,19 @@ chrome.tabs.onRemoved.addListener(tabId => {
   ]).catch(() => {});
 });
 
+chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
+  if (changeInfo.status !== 'complete' || !Number.isInteger(tab.openerTabId) || !isPanoptoSender({ url: tab.url })) return;
+  const targetKey=storageKey('canvas-context',tabId), openerKey=storageKey('canvas-context',tab.openerTabId);
+  chrome.storage.session.get([targetKey,openerKey]).then(values => {
+    if (!values[targetKey] && values[openerKey]) return chrome.storage.session.set({[targetKey]:values[openerKey]}).then(()=>chrome.runtime.sendMessage({type:'STUDY_CONTEXT_UPDATED',tabId}).catch(()=>{}));
+  }).catch(()=>{});
+});
+
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message?.type === "PANOPTO_STUDY_DOWNLOAD") {
+    if (!isPanoptoSender(sender) && !sender.url?.startsWith(chrome.runtime.getURL('scripts/popup.html'))) {
+      sendResponse({ ok: false, error: "Download from the Panopto player." }); return false;
+    }
     const url = message.url;
     if (!url || !/^https:\/\//i.test(url)) {
       sendResponse({ ok: false, error: "No valid HTTPS download URL was supplied." });
@@ -114,13 +125,16 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     };
     chrome.storage.session.set({ [storageKey("recording-context", tabId)]: recording })
       .then(() => panelPromise)
-      .then(() => sendResponse({ ok: true }))
+      .then(() => {
+        chrome.runtime.sendMessage({ type: "STUDY_CONTEXT_UPDATED", tabId }).catch(() => {});
+        sendResponse({ ok: true });
+      })
       .catch(error => sendResponse({ ok: false, error: error?.message || String(error) }));
     return true;
   }
 
   if (message?.type === "GET_STUDY_CONTEXT") {
-    if (sender.id !== chrome.runtime.id || !Number.isInteger(message.tabId)) {
+    if (sender.id !== chrome.runtime.id || !sender.url?.startsWith(chrome.runtime.getURL('')) || !Number.isInteger(message.tabId)) {
       sendResponse({ ok: false, error: "Invalid study context request." });
       return false;
     }

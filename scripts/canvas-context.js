@@ -81,9 +81,60 @@
     updateTimer = setTimeout(publishIfChanged, 250);
   }
 
-  chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+  async function moduleOutline() {
+    const courseId = courseIdFromPath();
+    if (!courseId) throw new Error('Open a Canvas course first.');
+    const prefix = `/api/v1/courses/${courseId}/modules`;
+    let requests = 0;
+    async function pages(path) {
+      const results = [];
+      let next = new URL(path, location.origin).href;
+      while (next) {
+        const url = new URL(next);
+        if (url.origin !== location.origin || !(url.pathname === prefix || new RegExp(`^${prefix}/[0-9]+/items$`).test(url.pathname))) throw new Error('Canvas returned an unexpected pagination link.');
+        if (++requests > 60) throw new Error('This course has too many module pages for one sync. Open individual items instead.');
+        const response = await fetch(url.href, { credentials: 'same-origin', headers: { Accept: 'application/json' }, redirect: 'error', signal: AbortSignal.timeout(20000) });
+        if (!response.ok) throw new Error(`Canvas module access failed (HTTP ${response.status}). Check your Canvas login and course access.`);
+        let values;
+        try { values = JSON.parse((await response.text()).replace(/^\s*while\(1\);\s*/, '')); }
+        catch { throw new Error('Canvas returned an unreadable module list.'); }
+        if (!Array.isArray(values)) throw new Error('Canvas did not return a module list.');
+        results.push(...values);
+        if (results.length > 3000) throw new Error('This course outline is too large. Open individual module items.');
+        next = (response.headers.get('Link') || '').split(',').map(link => link.match(/<([^>]+)>;\s*rel="next"/)).find(Boolean)?.[1] || '';
+      }
+      return results;
+    }
+    const modules = await pages(prefix + '?include[]=items&per_page=100');
+    const outline = [];
+    for (const module of modules) {
+      if (!/^\d+$/.test(String(module.id))) continue;
+      const items = Array.isArray(module.items) && module.items.length === Number(module.items_count) ? module.items : await pages(prefix + `/${module.id}/items?per_page=100`);
+      outline.push({ id: String(module.id), title: String(module.name || 'Module').slice(0,200), items: items.map(item => {
+        let url = '';
+        try { const parsed = new URL(item.html_url); if (parsed.origin === location.origin && parsed.pathname.startsWith(`/courses/${courseId}/`)) { parsed.search = ''; parsed.hash = ''; url = parsed.href; } } catch {}
+        return { id: String(item.id), title: String(item.title || 'Untitled item').slice(0,200), type: String(item.type || 'Item').slice(0,40), url };
+      }) });
+    }
+    return { context: currentContext(), modules: outline };
+  }
+
+  chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+    if (sender.id !== chrome.runtime.id || !sender.url?.startsWith(chrome.runtime.getURL(''))) return false;
+    if (message?.type === 'SYNC_CANVAS_MODULES') {
+      moduleOutline().then(sendResponse).catch(error => sendResponse({ error: error.message || 'Canvas sync failed.' }));
+      return true;
+    }
     if (message?.type === "GET_NUS_CANVAS_CONTEXT") {
       sendResponse(currentContext());
+    }
+    if (message?.type === 'CAPTURE_CANVAS_SOURCE') {
+      const selected = getSelection()?.toString().trim();
+      const root = document.querySelector('.wiki_page .user_content, .description.user_content, #assignment_show .user_content, #course_home_content .user_content, main .user_content, #content .user_content');
+      const text = selected || root?.innerText?.trim();
+      if (!text) return sendResponse({ error: 'Select study text on this page, or import the course file in the panel.' });
+      if (text.length > 350000) return sendResponse({ error: 'This page is too long. Select a smaller section.' });
+      sendResponse({ context: currentContext(), text, selection: Boolean(selected) });
     }
   });
 

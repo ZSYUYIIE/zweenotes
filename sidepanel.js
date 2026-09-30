@@ -1,59 +1,42 @@
-const status = document.getElementById("status");
-const courseCard = document.getElementById("course-card");
-const recordingCard = document.getElementById("recording-card");
-const emptyState = document.getElementById("empty-state");
-let activeTabId = null;
-
-function showText(id, value, fallback = "") {
-  document.getElementById(id).textContent = value || fallback;
-}
-
-async function loadContext() {
-  status.textContent = "Finding this tab’s study context…";
-  courseCard.hidden = true;
-  recordingCard.hidden = true;
-  emptyState.hidden = true;
-
+import { $, node, status, createLibrary, sourceInfo, sourceDialog, renderOutline } from './scripts/library-ui.js';
+import { ensureCourse, put } from './scripts/storage.js';
+const library = createLibrary(async (course, sources) => {
+  renderOutline(course);
+  $('materials').replaceChildren();
+  if (!sources.length) $('materials').append(node('p', 'No materials yet. Capture a page, paste notes or import a file.', 'muted'));
+  for (const source of sources) {
+    const item = node('div', undefined, 'list-item'); item.append(node('strong', source.title), node('div', sourceInfo(source), 'muted'));
+    const view = node('button', 'View'); view.addEventListener('click', () => sourceDialog(source)); item.append(view); $('materials').append(item);
+  }
+});
+$('studio').addEventListener('click', () => chrome.tabs.create({ url: chrome.runtime.getURL('studio.html') + (library.course ? '?course='+encodeURIComponent(library.course.id) : '') }));
+$('close-evidence').addEventListener('click', () => $('evidence').close());
+$('sync-modules').addEventListener('click', async () => {
+  $('sync-modules').disabled = true; status('Reading your Canvas module directory…');
   try {
     const [tab] = await chrome.tabs.query({ active: true, lastFocusedWindow: true });
-    if (!Number.isInteger(tab?.id)) throw new Error("No active browser tab was found.");
-    activeTabId = tab.id;
-    const result = await chrome.runtime.sendMessage({ type: "GET_STUDY_CONTEXT", tabId: activeTabId });
-    if (!result?.ok) throw new Error(result?.error || "Could not read this tab’s context.");
-
-    const { canvas, recording } = result;
-    if (canvas) {
-      showText("course-name", canvas.courseName, "NUS Canvas course");
-      showText("course-id", `Course ${canvas.courseId}`);
-      showText("item-title", canvas.itemTitle, "Current Canvas item");
-      showText("item-type", canvas.itemType, "course item");
-      showText("module-name", canvas.moduleName ? `Module: ${canvas.moduleName}` : "");
-      const link = document.getElementById("canvas-link");
-      const url = new URL(canvas.pageUrl);
-      if (url.origin === "https://canvas.nus.edu.sg") {
-        link.href = url.href;
-        link.hidden = false;
-      } else {
-        link.hidden = true;
-      }
-      courseCard.hidden = false;
-    }
-    if (recording) {
-      showText("recording-title", recording.title, "Panopto recording");
-      showText("recording-id", recording.recordingId ? `Recording ID ${recording.recordingId}` : "Recording details from the current tab");
-      recordingCard.hidden = false;
-    }
-    status.textContent = canvas || recording ? "Context for the current tab" : "";
-    emptyState.hidden = Boolean(canvas || recording);
-  } catch (error) {
-    status.textContent = error?.message || "Could not load study context.";
-    emptyState.hidden = false;
-  }
-}
-
-document.getElementById("refresh").addEventListener("click", loadContext);
-chrome.runtime.onMessage.addListener(message => {
-  if (message?.type === "STUDY_CONTEXT_UPDATED" && message.tabId === activeTabId) loadContext();
+    if (!tab?.id) throw new Error('Open a Canvas course tab first.');
+    let result;
+    try { result = await chrome.tabs.sendMessage(tab.id,{ type:'SYNC_CANVAS_MODULES' }); } catch { throw new Error('Open or reload your NUS Canvas course tab first.'); }
+    if (result?.error) throw new Error(result.error);
+    if (!result?.context || !Array.isArray(result.modules)) throw new Error('No Canvas course outline found.');
+    const course = await ensureCourse(result.context); course.modules=result.modules;course.outlineUpdatedAt=Date.now();await put('courses',course);
+    await library.refresh(course.id);status('Module directory saved locally. Open an item to capture its text or import its file.');
+  } catch (error) { status(error.message,true); } finally { $('sync-modules').disabled=false; }
 });
-
-loadContext();
+let activeTab, revision = 0;
+async function contextChanged() {
+  const token = ++revision;
+  const [tab] = await chrome.tabs.query({ active: true, lastFocusedWindow: true }); activeTab = tab?.id;
+  if (!activeTab) return;
+  let canvas;
+  try { canvas = await chrome.tabs.sendMessage(activeTab, { type: 'GET_NUS_CANVAS_CONTEXT' }); } catch {}
+  const context = await chrome.runtime.sendMessage({ type: 'GET_STUDY_CONTEXT', tabId: activeTab });
+  if (token !== revision) return;
+  if (!canvas && /^https:\/\/(canvas\.nus\.edu\.sg|[^/]+\.panopto\.(com|eu))\//.test(tab.url || '')) canvas = context?.canvas;
+  $('context').textContent = canvas ? canvas.courseName+'\n'+canvas.itemTitle : context?.recording ? 'Panopto: '+context.recording.title+'\nSelect the course and import a transcript.' : 'Open a course on NUS Canvas to connect it.';
+  if (canvas) await library.adopt(canvas);
+}
+chrome.tabs.onActivated.addListener(() => contextChanged().catch(e => status(e.message,true)));
+chrome.runtime.onMessage.addListener(message => { if (message?.type === 'STUDY_CONTEXT_UPDATED' && message.tabId === activeTab) contextChanged().catch(e => status(e.message,true)); });
+library.refresh().then(contextChanged).catch(e => status(e.message,true));

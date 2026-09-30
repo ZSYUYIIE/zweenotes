@@ -1,0 +1,11 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>ZweeNotes · AI settings</title><link rel="stylesheet" href="ui.css"></head><body>
+<main style="max-width:620px;margin:48px auto;padding:20px"><div class="brand"><div class="mark">Z</div><div><h1>Connect Qwen</h1><p>Your materials, your API account</p></div></div>
+<div class="card" style="margin-top:24px"><p>Generation sends selected course text to Alibaba Model Studio. Your key stays in this browser session and is cleared when Chrome restarts.</p>
+<label>Region preset<select id="region"><option value="https://dashscope-intl.aliyuncs.com/compatible-mode/v1">Singapore · shared endpoint</option><option value="https://dashscope.aliyuncs.com/compatible-mode/v1">Beijing · shared endpoint</option><option value="https://dashscope-us.aliyuncs.com/compatible-mode/v1">US · shared endpoint</option><option value="custom">Workspace endpoint</option></select></label>
+<label>Compatible-mode base URL<input id="base" type="url" spellcheck="false" autocomplete="off"></label>
+<label>Model<input id="model" value="qwen-plus" list="models" spellcheck="false"><datalist id="models"><option value="qwen-plus"><option value="qwen-flash"></datalist></label>
+<label>API key<input id="key" type="password" autocomplete="off" placeholder="Enter your Qwen API key"></label>
+<div class="row"><button id="connect" class="primary">Save connection</button><button id="clear">Disconnect</button></div><div id="status" class="status" role="status"></div></div>
+<p class="muted">Use the key, endpoint and model from the same region. New Model Studio workspaces may use a workspace-specific URL. Copy the base URL from your console.</p>
+<p class="muted"><a href="https://www.alibabacloud.com/help/en/model-studio/regions/" target="_blank" rel="noreferrer">Official endpoint guide ↗</a></p>
+<a class="button" href="studio.html">Open Cheatsheet Studio</a></main><script type="module" src="options.js"></script></body></html>

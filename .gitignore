@@ -8,3 +8,10 @@
 Thumbs.db
 .vscode/
 .idea/
+
+node_modules/
+.npm-cache/
+vendor/
+release/
+test-artifacts/
+zweenotes-course*.json

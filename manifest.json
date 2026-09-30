@@ -1,33 +1,51 @@
 {
-  "name": "ZweeNotes — NUS Canvas Companion",
-  "description": "Keep NUS Canvas course context beside Panopto recordings for study.",
-  "version": "0.1.0",
+  "name": "ZweeNotes — NUS Cheatsheet Studio",
+  "description": "Turn NUS Canvas materials into source-linked revision notes and editable one-page cheatsheets with Qwen.",
+  "version": "0.2.0",
   "manifest_version": 3,
-  "minimum_chrome_version": "116",
+  "minimum_chrome_version": "138",
   "icons": {
     "16": "images/icon-16.png",
     "32": "images/icon-32.png",
     "48": "images/icon-48.png",
     "128": "images/icon-128.png"
   },
-  "permissions": ["downloads", "sidePanel", "storage"],
+  "permissions": [
+    "downloads",
+    "sidePanel",
+    "storage"
+  ],
   "host_permissions": [
     "https://canvas.nus.edu.sg/*",
     "https://*.panopto.com/*",
     "https://*.panopto.eu/*"
   ],
-  "background": { "service_worker": "scripts/background.js" },
-  "action": { "default_title": "Open ZweeNotes study panel" },
-  "side_panel": { "default_path": "sidepanel.html" },
+  "background": {
+    "service_worker": "scripts/background.js"
+  },
+  "action": {
+    "default_title": "Open ZweeNotes study panel"
+  },
+  "side_panel": {
+    "default_path": "sidepanel.html"
+  },
   "content_scripts": [
     {
-      "js": ["scripts/canvas-context.js"],
-      "matches": ["https://canvas.nus.edu.sg/courses/*"],
+      "js": [
+        "scripts/canvas-context.js"
+      ],
+      "matches": [
+        "https://canvas.nus.edu.sg/courses/*"
+      ],
       "run_at": "document_idle"
     },
     {
-      "js": ["scripts/viewer-content.js"],
-      "css": ["scripts/viewer-styles.css"],
+      "js": [
+        "scripts/viewer-content.js"
+      ],
+      "css": [
+        "scripts/viewer-styles.css"
+      ],
       "matches": [
         "https://*.panopto.com/Panopto/Pages/Viewer.aspx*",
         "https://*.panopto.com/Panopto/Pages/Embed.aspx*",
@@ -40,8 +58,25 @@
   ],
   "web_accessible_resources": [
     {
-      "resources": ["scripts/popup.html", "scripts/handle-click.js"],
-      "matches": ["https://*.panopto.com/*", "https://*.panopto.eu/*"]
+      "resources": [
+        "scripts/popup.html",
+        "scripts/handle-click.js"
+      ],
+      "matches": [
+        "https://*.panopto.com/*",
+        "https://*.panopto.eu/*"
+      ]
     }
-  ]
+  ],
+  "options_page": "options.html",
+  "optional_host_permissions": [
+    "https://dashscope-intl.aliyuncs.com/*",
+    "https://dashscope.aliyuncs.com/*",
+    "https://dashscope-us.aliyuncs.com/*",
+    "https://cn-hongkong.dashscope.aliyuncs.com/*",
+    "https://*.maas.aliyuncs.com/*"
+  ],
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'; object-src 'self'; worker-src 'self';"
+  }
 }
