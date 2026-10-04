@@ -29,11 +29,12 @@ flowchart LR
 
 | Component | Responsibility |
 | --- | --- |
-| `scripts/canvas-context.js` | Read visible context; capture selected study text on request; read the current course's module directory on an explicit sync |
+| `scripts/canvas-context.js` | Visible context, explicit capture, current-course modules and syllabus/assessment announcement collection |
 | `scripts/viewer-content.js` | Preserve Panopto downloader and open study panel |
 | `scripts/background.js` | Per-tab session context, panel opening and Chrome downloads; no long AI job |
 | `sidepanel.*` | Course-aware capture, local file/notes import, module directory and Studio launch |
 | `scripts/importers.js` | PDF text extraction using bundled PDF.js; page and transcript-cue locators |
+| `scripts/assessment.js` | Evidence-backed assessment statements, explicit/suggested week ranges, conservative named exclusions and unresolved coverage |
 | `scripts/core.js` | Course source normalization, bounded chunks, extractive notes, point ranking and sheet schema |
 | `scripts/storage.js` | IndexedDB persistence of courses, sources, chunk results and sheets |
 | `scripts/providers.js` | Provider definitions, restricted official endpoints, isolated session credentials and model validation |
@@ -52,13 +53,19 @@ flowchart LR
 - **Chunk result**: course/source IDs, successful atoms and creation time. Cache key includes schema and prompt versions, provider, source ID/revision, chunk number, endpoint and model. Credentials are never part of a cache record. A cached result is reused even if a new key is entered for the same model and source.
 - **Sheet**: course ID, title, source index, all selected editable blocks, omitted count, page geometry and timestamps. Blocks can contain a user-added local raster diagram. Edits and review flags apply to that sheet; cached AI knowledge remains the original extraction.
 
-Source content is immutable after import. Reimport revised material to create a new revision. Scope is selected sources: one lecture, a week, or a course. Trouble topics receive highest rank, then source coverage and priority/emphasis. If the point budget is smaller than the number of sources or trouble points, full coverage cannot be guaranteed. Identical title/body candidates are deduplicated. The knowledge browser exposes unselected points instead of discarding them.
+Source content is immutable after import. Reimport revised material to create a new revision. Scope is selected sources: one lecture, a week, or a course. Trouble topics receive highest rank, then source coverage and priority/emphasis. If the point budget is smaller than the number of sources or trouble points, full coverage cannot be guaranteed. Remaining slots are distributed across materials rather than filled entirely by one long source. Identical title/body candidates are deduplicated. The knowledge browser exposes unselected points instead of discarding them.
 
 ## Canvas integration
 
 Course detection uses the current URL and visible breadcrumb/title. Explicit module sync performs read-only GETs from the Canvas tab with its existing first-party login. It follows pagination and falls back to the module-items API when inline items are omitted. It accepts only the same course's module endpoints and stores titles/types/item links, not grades or submission data. API errors preserve the existing local directory. Open an item to capture text or import its downloaded file; there is no automatic bulk course download. Module directories may be empty or disabled on particular courses.
 
 Capture imports a selection or the current `.user_content` study container. It does not crawl hidden course data, other students' replies, submissions or quizzes automatically. Panopto is supplementary recording context and an existing download route. VTT/SRT transcripts must currently be supplied by the user; automatic caption retrieval and video transcription are future work.
+
+## Assessment scope
+
+Explicit assessment sync reads the current course's syllabus and announcement topics only, via same-origin Canvas GET requests. It strips HTML to local text, keeps exam-related announcements and stores their exact course URLs/post dates. It does not read replies, grades or submissions. Pagination is bounded and rejected if it leaves the course/announcement endpoint. A failed sync preserves existing evidence.
+
+Studio has Selected materials, Midterm and Final targets. Explicit week ranges are displayed as evidence; a unique midterm module suggests the preceding weeks. Sample/past-paper module labels are not exam boundaries. Simple named exclusions can remove a matching source title/topic; a later matching inclusion supersedes an older exclusion. Unknown weeks/materials remain unresolved and selected for review. Matching is conservative English pattern matching, not unrestricted natural-language understanding. Instructors' exceptions and mixed-scope files require review. Final coverage stays unknown without explicit evidence; no assumption that it starts after midterms or excludes earlier content. Users must review scope/material selection before generating an exam sheet; evidence and selected source IDs are stored with the sheet.
 
 ## AI jobs and credentials
 

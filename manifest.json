@@ -1,7 +1,7 @@
 {
   "name": "ZweeNotes — NUS Cheatsheet Studio",
   "description": "Turn NUS Canvas materials into source-linked notes and editable one-page cheatsheets with Nemotron or Qwen.",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "manifest_version": 3,
   "minimum_chrome_version": "138",
   "icons": {

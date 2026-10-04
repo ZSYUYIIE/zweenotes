@@ -35,3 +35,9 @@ Optional reproduction: supply `NVIDIA_API_KEY` through the process environment a
 ## Limits
 
 These examples are not an accuracy or performance benchmark. References establish traceability, not factual correctness. One request took about 68 seconds; requests retain the 90-second timeout and cancellation controls. Nemotron Super, live Qwen, actual Canvas accounts, full-course PDFs and final printer/PDF-driver output were not checked in this integration pass.
+
+## Assessment workflow checks — 0.2.2
+
+19 unit checks passed, including unresolved final coverage, suggested midterm boundaries, explicit ranges versus exclusions, sample-paper boundaries, later inclusion overrides and balanced method selection. The isolated Studio browser check also passed week suggestions, scope review gating and stored evidence. A separate mocked Canvas browser check passed current-course collection, filtering, HTML sanitization and pagination isolation. Run `npm run test:canvas` for that check.
+
+A real CS3263 trial uses privately held original slides/tutorial PDFs and manually transcribed evidence read from the signed-in Canvas UI. The ignored `trial` folder holds its input, resumable source/chunk archive, PDF and detailed run report. It does not establish coverage of missing course material or video speech; do not publish those course files. The Canvas collector itself was checked against fixtures, not installed into the live browser during this run.

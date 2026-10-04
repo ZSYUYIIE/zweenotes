@@ -1,4 +1,4 @@
-# Privacy notes — ZweeNotes 0.2.1
+# Privacy notes — ZweeNotes 0.2.2
 
 Updated 2026-10-05. These notes describe the development Cheatsheet Studio project, not the previously submitted downloader-only Chrome Web Store package.
 
@@ -8,11 +8,13 @@ On NUS Canvas course pages, the extension reads the current course ID, visible n
 
 Clicking **Capture Canvas text** reads your selection or the current page's study-content container. Clicking **Sync this course's modules** performs read-only requests to that course's Canvas module API using the existing first-party Canvas login; it stores module titles, item titles/types and same-course navigation links locally. It does not automatically collect grades, submissions, student replies or assessment attempts. Capture selections are user-controlled: check what you have selected.
 
+Clicking **Sync assessment guidance** reads this course's syllabus and published announcement topics using your existing Canvas session. Exam-related titles, plain text, post dates and evidence URLs are saved locally. The collector does not read announcement replies, grades or submissions. Scope guidance is not sent to AI merely by syncing or selecting Midterm/Final.
+
 The existing downloader obtains a direct media URL from the logged-in Panopto player and asks Chrome Downloads to save it. ZweeNotes has no conversion server; signed media URLs are not sent to an AI service. Recording transcripts must currently be supplied as local VTT/SRT files.
 
 ## Local course library
 
-Imported text/PDF/subtitle contents, source locators, course labels, knowledge points, personal trouble topics, sheet edits and user-added diagrams persist in IndexedDB in this Chrome profile. PDF text extraction and formula rendering run locally with packaged libraries. No ZweeNotes account, hosted database, analytics or tracking endpoint is present.
+Imported text/PDF/subtitle contents, source locators, course labels, assessment evidence and selected exam scope, knowledge points, personal trouble topics, sheet edits and user-added diagrams persist in IndexedDB in this Chrome profile. PDF text extraction and formula rendering run locally with packaged libraries. No ZweeNotes account, hosted database, analytics or tracking endpoint is present.
 
 Local course data is not encrypted by the extension. People or software with access to this browser profile may be able to read it. Use separate Chrome profiles for different people. Export Project downloads a JSON file containing the current course's source text, knowledge and sheets, never API credentials. The export may contain private course material.
 

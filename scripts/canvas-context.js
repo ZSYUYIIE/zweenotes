@@ -119,8 +119,37 @@
     return { context: currentContext(), modules: outline };
   }
 
+  async function assessmentEvidence() {
+    const courseId=courseIdFromPath();
+    if (!courseId) throw new Error('Open a Canvas course first.');
+    const text=html=>{const doc=new DOMParser().parseFromString(String(html||''),'text/html');doc.querySelectorAll('script,style,iframe').forEach(el=>el.remove());doc.querySelectorAll('p,li,br,h1,h2,h3').forEach(el=>el.append(doc.createTextNode('\n')));return (doc.body.textContent||'').trim().slice(0,100000);};
+    const read=async path=>{const response=await fetch(new URL(path,location.origin),{credentials:'same-origin',redirect:'error',headers:{Accept:'application/json'},signal:AbortSignal.timeout(20000)});if(!response.ok)throw new Error('Canvas assessment access failed (HTTP '+response.status+').');return {data:JSON.parse((await response.text()).replace(/^\s*while\(1\);\s*/,'')),link:response.headers.get('Link')||''};};
+    const course=await read('/api/v1/courses/'+courseId+'?include[]=syllabus_body');
+    const documents=[{title:'Course syllabus',text:text(course.data.syllabus_body),url:location.origin+'/courses/'+courseId+'/assignments/syllabus'}];
+    // Use the course's announcement list, with pagination; no grades, replies or submissions.
+    let next='/api/v1/courses/'+courseId+'/discussion_topics?only_announcements=true&per_page=100';
+    for(let page=0;next && page<10;page++) {
+      const url=new URL(next,location.origin);
+      if(url.origin!==location.origin || url.pathname!=='/api/v1/courses/'+courseId+'/discussion_topics' || url.searchParams.get('only_announcements')!=='true')throw new Error('Unexpected Canvas assessment pagination.');
+      const result=await read(url.href);if(!Array.isArray(result.data))throw new Error('Unreadable Canvas announcements.');
+      for(const item of result.data) {
+        const body=text(item.message), title=String(item.title||'');
+        if(!/mid[\s-]?term|final(?:\s+exam|\s+assessment|\s+test)|exam\s+scope|assessment\s+coverage/i.test(title+' '+body))continue;
+        if(!/^\d+$/.test(String(item.id)))continue;
+        documents.push({title:title.slice(0,200),text:body,postedAt:item.posted_at||'',url:location.origin+'/courses/'+courseId+'/discussion_topics/'+item.id});
+      }
+      next=result.link.split(',').map(l=>l.match(/<([^>]+)>;\s*rel="next"/)).find(Boolean)?.[1]||'';
+      if(page===9 && next)throw new Error('Too many announcements; capture the assessment guidance manually.');
+    }
+    documents.sort((a,b)=>(b.postedAt||'').localeCompare(a.postedAt||''));
+    return {context:currentContext(),documents,syncedAt:Date.now()};
+  }
+
   chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     if (sender.id !== chrome.runtime.id || !sender.url?.startsWith(chrome.runtime.getURL(''))) return false;
+    if (message?.type === 'SYNC_CANVAS_ASSESSMENTS') {
+      assessmentEvidence().then(sendResponse).catch(error=>sendResponse({error:error.message||'Assessment sync failed.'}));return true;
+    }
     if (message?.type === 'SYNC_CANVAS_MODULES') {
       moduleOutline().then(sendResponse).catch(error => sendResponse({ error: error.message || 'Canvas sync failed.' }));
       return true;

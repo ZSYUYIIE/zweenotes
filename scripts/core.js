@@ -117,6 +117,7 @@ export function composeSheet(course, sources, atoms, options = {}) {
   const ranked = atoms.filter(atom => allowed.includes(atom.kind)).map((atom, order) => ({
     ...atom, order, trouble: trouble.has(topicKey(atom.title)),
     rank: Number(atom.priority || 2) + (trouble.has(topicKey(atom.title)) ? 10 : 0)
+      - (/example|\bquery\b|proof\s+of|unification\s+of|solutions?\s+count/i.test(atom.title) ? 4 : 0)
       + (options.emphasis === 'methods' && ['formula','algorithm','pattern'].includes(atom.kind) ? 3 : 0)
       + (options.emphasis === 'pitfalls' && atom.kind === 'pitfall' ? 3 : 0)
   })).sort((a, b) => b.rank - a.rank || a.order - b.order);
@@ -131,7 +132,9 @@ export function composeSheet(course, sources, atoms, options = {}) {
   // Include trouble spots first, then reserve representation for each selected source.
   ranked.filter(a => a.trouble).forEach(add);
   for (const source of sources) { const candidate = ranked.find(a => a.sourceId === source.id); if (candidate) add(candidate); }
-  ranked.forEach(add);
+  // Distribute the remaining budget across materials so one long lecture cannot monopolize the page.
+  const queues=sources.map(source=>ranked.filter(a=>a.sourceId===source.id && !used.has(a.id)));
+  for(let round=0;selected.length<limit && queues.some(q=>q.length);round++)for(const queue of queues){const atom=queue.shift();if(atom)add(atom);}
   const sourceIndex = Object.fromEntries(sources.map((source, i) => [source.id, { number: i + 1, title: source.title, url: source.url }]));
   return {
     id: uid(), courseId: course.id, title: `${course.name} · Cheatsheet`, schemaVersion: SCHEMA_VERSION,

@@ -76,7 +76,7 @@ export function renderOutline(course) {
   if (!course?.modules?.length) { root.append(node('p', 'Sync modules from the side panel on a Canvas course tab.', 'muted')); return; }
   for (const module of course.modules) {
     const details = node('details', undefined, 'list-item'); details.append(node('summary', module.title));
-    for (const item of module.items) {
+    for (const item of module.items || []) {
       const row = node('div', undefined, 'list-item'); row.append(node('small', item.type+' · '));
       if (/^https:\/\/canvas\.nus\.edu\.sg\/courses\//.test(item.url)) { const a = node('a', item.title); a.href=item.url; a.target='_blank'; a.rel='noreferrer'; row.append(a); }
       else row.append(node('span',item.title)); details.append(row);

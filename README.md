@@ -1,9 +1,10 @@
 # ZweeNotes — NUS Cheatsheet Studio
 
-A NUS-first Chrome extension for collecting Canvas study materials, summarizing them with your NVIDIA Nemotron or Qwen API account, and composing editable one-page cheatsheets. Development version **0.2.1** lives in [ZSYUYIIE/zweenotes](https://github.com/ZSYUYIIE/zweenotes).
+A NUS-first Chrome extension for collecting Canvas study materials, summarizing them with your NVIDIA Nemotron or Qwen API account, and composing editable one-page cheatsheets. Development version **0.2.2** lives in [ZSYUYIIE/zweenotes](https://github.com/ZSYUYIIE/zweenotes).
 
 ## What is implemented
 
+- Read Canvas syllabus and assessment announcements on demand; review Midterm/Final coverage with evidence links and conservative week/topic suggestions.
 - Detect NUS Canvas course context and read the current course's module/item directory on demand.
 - Capture selected/current Canvas study text; import local PDF, TXT, Markdown, VTT or SRT.
 - Separate course libraries by Canvas course ID, with lecture/tutorial/lab/reference labels and optional weeks.
@@ -31,9 +32,9 @@ Then:
 1. Open `chrome://extensions`, enable **Developer mode**, and choose **Load unpacked**.
 2. Select this project folder (the one containing `manifest.json`).
 3. Reload an NUS Canvas course page. Click the extension icon to open the study panel.
-4. Capture study text, sync the module directory, or import files. Open **Studio**.
+4. Sync modules and **assessment guidance** from the side panel on your Canvas course tab. Capture study text, sync the module directory, or import files. Open **Studio**.
 5. Open **AI settings**, choose NVIDIA Nemotron or Qwen, enter your key and model, then save and grant the endpoint permission. **Test connection** optionally summarizes a short original example.
-6. Select materials, choose the connected provider and generate. Review the source links, edit points, and fit the page.
+6. Select materials, optionally choose Midterm/Final and review the guidance, then choose the connected provider and generate. Materials without a week stay unresolved; final coverage is not inferred from the midterm date. Review the source links, edit points, and fit the page.
 7. Use **Print / Save PDF**. Choose A4, the matching orientation, 100% scale, no margins and no browser headers/footers.
 
 The default NVIDIA model is `nvidia/nemotron-3.5-lightning-30b-a3b`, using the fixed `https://integrate.api.nvidia.com/v1` endpoint. Nemotron Super is also selectable but has not been live-tested here. Existing Qwen preferences are preserved. Provider keys and cached results are kept separate; switching providers can create new requests.
@@ -49,10 +50,11 @@ npm run build
 npm run package
 ```
 
-The Windows packaging command writes `release/zweenotes-0.2.1.zip` (or a timestamped filename if that archive already exists). It includes only extension files and bundled runtime dependencies. Extract the ZIP into a folder before using Load unpacked. Source checkouts need the build step; the ZIP already includes the generated vendor files.
+The Windows packaging command writes `release/zweenotes-0.2.2.zip` (or a timestamped filename if that archive already exists). It includes only extension files and bundled runtime dependencies. Extract the ZIP into a folder before using Load unpacked. Source checkouts need the build step; the ZIP already includes the generated vendor files.
 
 ## Boundaries of this version
 
+- Assessment suggestions recognize English exam labels, explicit week ranges and simple named exclusions. They do not fully interpret topic synonyms, mixed-scope files or arbitrary instructor language. You review the selected materials before generation. Dates/module order are suggestions; the final may be cumulative.
 - Canvas sync discovers module links; it does not bulk-download course files. Open an item to capture text or import its file.
 - Panopto supplies recording context and the existing download control. Supply subtitles manually; automatic captions, transcription and recording-to-notes are not implemented yet.
 - PDF parsing extracts text, not a visual reconstruction. Scans need OCR elsewhere; native slide decks must be exported to PDF.
@@ -67,6 +69,7 @@ The Windows packaging command writes `release/zweenotes-0.2.1.zip` (or a timesta
 ```sh
 npm test
 npm run test:browser
+npm run test:canvas
 ```
 
 Unit checks cover provider isolation, endpoint validation, source references, errors and cancellation. Browser checks use an isolated headless Chrome with fake keys and mocked API responses; install the development dependencies first. They do not use your browser session.

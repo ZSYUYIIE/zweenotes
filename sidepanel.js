@@ -11,6 +11,18 @@ const library = createLibrary(async (course, sources) => {
 });
 $('studio').addEventListener('click', () => chrome.tabs.create({ url: chrome.runtime.getURL('studio.html') + (library.course ? '?course='+encodeURIComponent(library.course.id) : '') }));
 $('close-evidence').addEventListener('click', () => $('evidence').close());
+$('sync-assessments').addEventListener('click',async()=>{
+  $('sync-assessments').disabled=true;status('Reading Canvas syllabus and assessment announcements…');
+  try {
+    const [tab]=await chrome.tabs.query({active:true,lastFocusedWindow:true});
+    if(!tab?.id)throw new Error('Open your Canvas course tab first.');
+    const result=await chrome.tabs.sendMessage(tab.id,{type:'SYNC_CANVAS_ASSESSMENTS'});
+    if(result?.error)throw new Error(result.error);
+    if(!result?.context || !Array.isArray(result.documents))throw new Error('No assessment evidence found.');
+    const course=await ensureCourse(result.context);course.assessmentEvidence={documents:result.documents,syncedAt:result.syncedAt};await put('courses',course);
+    await library.refresh(course.id);status('Assessment guidance saved locally. Choose Midterm or Final in Studio and review the evidence.');
+  }catch(error){status(error.message,true);}finally{$('sync-assessments').disabled=false;}
+});
 $('sync-modules').addEventListener('click', async () => {
   $('sync-modules').disabled = true; status('Reading your Canvas module directory…');
   try {

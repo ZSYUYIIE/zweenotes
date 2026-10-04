@@ -1,4 +1,5 @@
 import { PROVIDERS } from './scripts/providers.js';
+import { assessmentScope, sourceScope } from './scripts/assessment.js';
 import { KINDS, uid, topicKey } from './scripts/core.js';
 import { list, get, put } from './scripts/storage.js';
 import { $, node, status, createLibrary, sourceInfo, sourceDialog, download, renderOutline } from './scripts/library-ui.js';
@@ -75,10 +76,11 @@ const library=createLibrary(async (course,sources) => {
   knownSourceIds=new Set(sources.map(s=>s.id));
   $('materials').replaceChildren();
   renderOutline(course);
+  $('assessment-reviewed').checked=false; assessmentView(course);
   if (!sources.length) $('materials').append(node('p','Import files or paste notes to start.','muted'));
   for (const source of sources) {
     const item=node('div',undefined,'list-item'); const label=node('label',undefined,'check'), check=node('input'); check.type='checkbox'; check.checked=selected.has(source.id);
-    check.addEventListener('change',()=>{check.checked?selected.add(source.id):selected.delete(source.id);selectionInfo();});
+    check.addEventListener('change',()=>{check.checked?selected.add(source.id):selected.delete(source.id);$('assessment-reviewed').checked=false;selectionInfo();});
     const copy=node('div'); copy.append(node('strong',source.title),node('div',sourceInfo(source),'muted')); label.append(check,copy); item.append(label);
     const row=node('div',undefined,'row'); row.append(button('View source',()=>sourceDialog(source)),button('Delete',async()=>{
       if (!confirm('Delete this material and its cached knowledge points? Existing sheets keep their text and references.')) return;
@@ -142,12 +144,15 @@ function renderEditor() {
 $('generate').addEventListener('click',safely(async()=>{
   if(controller)return;
   if(!library.course)throw new Error('Choose a course first.');
+  if($('assessment-target').value!=='selected' && !$('assessment-reviewed').checked)throw new Error('Review Canvas assessment guidance and your selected materials, then confirm the scope.');
   const sources=library.sources.filter(s=>selected.has(s.id));if(!sources.length)throw new Error('Select at least one material.');
   await flushSave(); controller=new AbortController();
   $('library-controls').disabled=true;$('generate').disabled=true;$('cancel').hidden=false;$('demo').disabled=true;$('history').disabled=true;
   try {
     const generated=await generateSheet(library.course,sources,{engine:$('engine').value,blockLimit:$('budget').value,emphasis:$('emphasis').value},status,controller.signal);
-    await flushSave();sheet=generated;
+    generated.assessment={...assessmentScope(library.course,$('assessment-target').value),reviewedAt:Date.now(),selectedSourceIds:sources.map(s=>s.id)};
+    if($('assessment-target').value!=='selected')generated.title=library.course.name+' · '+($('assessment-target').value==='midterm'?'Midterm':'Final')+' revision';
+    await put('sheets',generated);await flushSave();sheet=generated;
     await history(library.course);activateSheet();
     status('Saved locally. Review source links and edit your sheet. '+sheet.omittedCount+' point(s) remain in the knowledge library but were not selected for this sheet.');
   } finally {controller=null;$('library-controls').disabled=false;$('generate').disabled=false;$('cancel').hidden=true;$('demo').disabled=false;$('history').disabled=false;}
@@ -176,6 +181,22 @@ addEventListener('beforeprint',()=>{checkPageFit();});
 addEventListener('zweenotes-image-ready',checkPageFit);
 $('close-evidence').addEventListener('click',()=>$('evidence').close());
 $('engine').addEventListener('change',selectionInfo);
+function assessmentView(course=library.course) {
+  const scope=assessmentScope(course||{},$('assessment-target').value), root=$('assessment-guidance');root.replaceChildren();
+  $('assessment-review-label').hidden=!scope;$('assessment-suggest').hidden=!scope;
+  if(!scope)return;
+  root.append(node('p',scope.message));
+  if(scope.range)root.append(node('strong','Weeks '+scope.range.start+'–'+scope.range.end+(scope.range.inferred?' · suggested, not confirmed':'')));
+  for(const statement of scope.statements){const row=node('p',statement.text);if(/^https:\/\/canvas\.nus\.edu\.sg\/courses\//.test(statement.url)){const link=node('a',' Canvas evidence ↗');link.href=statement.url;link.target='_blank';link.rel='noreferrer';row.append(link);}root.append(row);}
+  const unresolved=library.sources.filter(s=>sourceScope(s,scope)==='unresolved');if(unresolved.length)root.append(node('p',unresolved.length+' material(s) have unresolved coverage. Check their topics and weeks manually.'));
+}
+$('assessment-target').addEventListener('change',()=>{$('assessment-reviewed').checked=false;assessmentView();});
+$('assessment-suggest').addEventListener('click',()=>{
+  const scope=assessmentScope(library.course||{},$('assessment-target').value);if(!scope?.range)return status('No confirmed week range or midterm module boundary. Select materials manually.',true);
+  selected=new Set(library.sources.filter(s=>!['outside-weeks','explicitly-excluded'].includes(sourceScope(s,scope))).map(s=>s.id));
+  [...$('materials').querySelectorAll('input[type=checkbox]')].forEach((check,i)=>{check.checked=selected.has(library.sources[i].id);});
+  $('assessment-reviewed').checked=false;selectionInfo();status('Week suggestion applied. Unresolved materials remain selected for your review; instructor topic exclusions must be checked.');
+});
 $('knowledge').addEventListener('click',safely(async()=>{
   if(!library.course)throw new Error('Choose a course first.');
   const chunks=await list('chunks',library.course.id), seen=new Set();

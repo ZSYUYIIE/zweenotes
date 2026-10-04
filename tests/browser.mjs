@@ -83,6 +83,15 @@ try {
   assert.ok(chunks.includes('qwen') && chunks.includes('nemotron'));
   await page.locator('#engine').selectOption('nemotron');await generateAndWait();
   assert.equal(requests.length,7);
+  await page.evaluate(async()=>{const {get,put}=await import('/scripts/storage.js');const course=await get('courses','demo:os');course.modules=[{title:'WEEK 3 | Midterm'}];course.assessmentEvidence={documents:[{title:'Midterm',text:'The assessment is open book. Coverage includes the lecture methods.',url:'https://canvas.nus.edu.sg/courses/1/discussion_topics/2'}]};await put('courses',course);});
+  await page.locator('#reload').click();await page.locator('#assessment-target').selectOption('midterm');
+  await page.waitForFunction(()=>document.querySelector('#assessment-guidance').textContent.includes('Weeks 1–2'));
+  await page.locator('#assessment-suggest').click();assert.equal(await page.locator('#materials input:checked').count(),1);
+  await page.locator('#engine').selectOption('source-extract');await page.locator('#generate').click();
+  await page.waitForFunction(()=>document.querySelector('#status').textContent.includes('confirm the scope'));
+  await page.locator('#assessment-reviewed').check();await generateAndWait();
+  const assessment=await page.evaluate(async()=>{const {get}=await import('/scripts/storage.js');return (await get('sheets',document.querySelector('#history').value)).assessment;});assert.equal(assessment.target,'midterm');assert.equal(assessment.range.inferred,true);
+  await page.locator('#assessment-target').selectOption('final');assert.ok((await page.locator('#assessment-guidance').textContent()).includes('Final coverage is not confirmed'));assert.equal(await page.locator('#assessment-reviewed').isChecked(),false);
   await mkdir(path.join(root,'test-artifacts'),{recursive:true});await page.screenshot({path:path.join(root,'test-artifacts','nemotron-studio.png'),fullPage:true});
-  assert.deepEqual(errors,[]);console.log('PASS: provider settings, session isolation, connection check, course import, generation, provenance, page fit and cache separation (7 mocked API requests).');
+  assert.deepEqual(errors,[]);console.log('PASS: provider settings, session isolation, connection check, course import, generation, provenance, page fit, cache separation and assessment scope review (7 mocked API requests).');
 } finally { await browser.close(); }
