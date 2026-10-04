@@ -1,6 +1,6 @@
-# Privacy notes — ZweeNotes 0.2.0
+# Privacy notes — ZweeNotes 0.2.1
 
-Updated 2026-09-30. These notes describe the development Cheatsheet Studio project, not the previously submitted downloader-only Chrome Web Store package.
+Updated 2026-10-05. These notes describe the development Cheatsheet Studio project, not the previously submitted downloader-only Chrome Web Store package.
 
 ## Canvas and Panopto context
 
@@ -18,15 +18,17 @@ Local course data is not encrypted by the extension. People or software with acc
 
 Deleting a source removes that material and its cached knowledge chunks. Existing sheets retain text and reference labels; deleted source text can no longer be viewed as evidence. To remove the entire library, clear the extension's profile storage or uninstall it. Export first if you need the materials later. There is no cloud sync or archive import in this version.
 
-## Optional Qwen cloud processing
+## Optional cloud AI processing
 
-Qwen generation is an explicit action. It sends selected source text, course/material title, activity label and page/section/timestamp references directly to the configured official Alibaba Model Studio endpoint using your API account. Local diagrams, browser cookies, Canvas login credentials and Panopto signed URLs are not included in Qwen requests. Responses are saved locally as knowledge points and sheets.
+Generation is an explicit action. It sends selected source text, course/material title, activity label and page/section/timestamp references directly to your chosen NVIDIA or Alibaba Model Studio endpoint using your API account. Local diagrams, browser cookies, Canvas login credentials and Panopto signed URLs are not included in requests. Responses are saved locally as knowledge points and sheets.
 
-The Qwen key is entered in AI settings and stored only in `chrome.storage.session`, available to trusted extension pages. It is cleared when the browser session ends, the extension is reloaded, or you disconnect. Only the nonsecret model ID and base URL persist in `chrome.storage.local`. There is no key in the repository, ZIP, IndexedDB or course export. The key is sent to your configured Alibaba endpoint in the Authorization header.
+Keys are entered in AI settings and stored separately per provider in `chrome.storage.session`, available to trusted extension pages. They are cleared when the browser session ends, the extension is reloaded, or you disconnect that provider. Only nonsecret provider/model/endpoint preferences persist in `chrome.storage.local`. Developer credentials are not embedded in the repository or ZIP; user keys are not saved in IndexedDB, course exports or screenshots. Authorization headers send your key only to the selected allowlisted endpoint.
 
-Alibaba processes the submitted text according to your Model Studio account, region and applicable service terms. API requests may incur charges. Match your key to its region/workspace and model. Successful chunk responses are cached locally so an identical run can reuse them; requests that did not complete may be sent again when you retry.
+NVIDIA uses the fixed `https://integrate.api.nvidia.com/v1` endpoint. Qwen uses supported official Alibaba regional/workspace endpoints; match the key to its region and model. Your provider processes submitted text according to its account and service terms. Provider usage limits and billing terms apply.
 
-Qwen host access is optional and requested for the exact endpoint origin when you save a connection. Only official supported Alibaba endpoints are accepted. Disconnect removes the key; Chrome can separately revoke the granted host permission. No material is sent merely by opening the panel, importing a file or using source-extract mode.
+Saving settings sends no inference. Clicking **Test connection** submits a small original definition, without course materials. Successful chunks are cached locally with separate provider/model/endpoint/prompt-version identities. Identical runs can reuse them; switching providers or retrying incomplete work can create additional requests. There are no automatic paid retries.
+
+Provider host access is optional and requested for the exact endpoint origin when you save a connection. Disconnect removes that provider's key; Chrome can separately revoke host permission. No material is sent merely by opening the panel, importing a file or using source-extract mode.
 
 ## Permissions
 
@@ -35,6 +37,6 @@ Qwen host access is optional and requested for the exact endpoint origin when yo
 - Storage: session context/key, nonsecret settings and durable local materials.
 - Side panel: study workspace entry point.
 - Downloads: save Panopto media through Chrome.
-- Optional Alibaba host access: user-triggered Qwen requests.
+- Optional NVIDIA and Alibaba host access: user-triggered requests to the chosen AI provider.
 
 The extension does not request general browsing history, a Canvas API token, microphone access or access to arbitrary websites.

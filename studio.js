@@ -1,3 +1,4 @@
+import { PROVIDERS } from './scripts/providers.js';
 import { KINDS, uid, topicKey } from './scripts/core.js';
 import { list, get, put } from './scripts/storage.js';
 import { $, node, status, createLibrary, sourceInfo, sourceDialog, download, renderOutline } from './scripts/library-ui.js';
@@ -64,7 +65,7 @@ function troubleView(course) {
 function selectionInfo() {
   const sources=library.sources.filter(s=>selected.has(s.id));
   const chars=sources.reduce((total,s)=>total+s.segments.reduce((n,x)=>n+x.text.length,0),0);
-  $('send-summary').textContent=$('engine').value==='qwen' ? sources.length+' material(s), '+chars.toLocaleString()+' characters selected. Generate sends this text to Qwen; usage is billed by your API account. Saved chunks are reused.' : sources.length+' material(s) selected. Extracts use your original text without AI rewriting.';
+  $('send-summary').textContent=Object.hasOwn(PROVIDERS,$('engine').value) ? sources.length+' material(s), '+chars.toLocaleString()+' characters selected. Generate sends this text to '+PROVIDERS[$('engine').value].label+'. Your provider’s usage limits and billing terms apply. Saved chunks are reused.' : sources.length+' material(s) selected. Extracts use your original text without AI rewriting.';
 }
 const library=createLibrary(async (course,sources) => {
   const token=++loading;
@@ -135,7 +136,7 @@ function renderEditor() {
       if(sheet?.id!==owner)return;block.image=data;changed({editor:true});
     }));figure.append(image);card.append(figure);
     if(block.image)card.append(button('Remove diagram',()=>{delete block.image;changed({editor:true});}));
-    card.append(bottom,node('div',block.needsReview?'Needs review · '+(block.engine==='qwen'?'AI generated':'source extract truncated'):'Reviewed / manually authored',block.needsReview?'review-label':'muted'));$('blocks').append(card);
+    card.append(bottom,node('div',block.needsReview?'Needs review · '+(Object.hasOwn(PROVIDERS,block.engine)?'AI generated':'source extract truncated'):'Reviewed / manually authored',block.needsReview?'review-label':'muted'));$('blocks').append(card);
   });
 }
 $('generate').addEventListener('click',safely(async()=>{
@@ -198,7 +199,7 @@ $('knowledge').addEventListener('click',safely(async()=>{
   $('evidence').showModal();
 }));
 $('reload').addEventListener('click',safely(()=>library.refresh()));
-$('demo').addEventListener('click',safely(async()=>{const id=await loadDemo();await library.refresh(id);$('engine').value='source-extract';selectionInfo();status('Original sample materials loaded. Use source extracts to try the layout, or choose Qwen to summarize them.');}));
+$('demo').addEventListener('click',safely(async()=>{const id=await loadDemo();await library.refresh(id);$('engine').value='source-extract';selectionInfo();status('Original sample materials loaded. Use source extracts to try the layout, or choose Nemotron/Qwen to summarize them.');}));
 $('export').addEventListener('click',safely(async()=>{
   if(!library.course)throw new Error('Choose a course first.');await flushSave();
   const course=library.course;
@@ -209,6 +210,14 @@ addEventListener('pagehide',()=>{flushSave();});
 addEventListener('beforeunload',event=>{if(savePending){event.preventDefault();event.returnValue='';}});
 document.fonts.ready.then(schedulePreview);
 chrome.storage.onChanged.addListener((_changes,area)=>{if(area==='session')aiStatus();});
-async function aiStatus(){const values=await chrome.storage.session.get('qwen_credentials');$('ai-status').textContent=values.qwen_credentials?.key?'Qwen connected for this session':'Qwen not connected';}
+async function aiStatus(){
+  const values=await chrome.storage.session.get(['ai_credentials','qwen_credentials']);
+  const labels=Object.entries(PROVIDERS).filter(([id])=>values.ai_credentials?.[id]?.key || (id==='qwen' && values.qwen_credentials?.key)).map(([,info])=>info.label);
+  $('ai-status').textContent=labels.length?labels.join(' + ')+' connected':'AI not connected';
+}
 await library.refresh(new URLSearchParams(location.search).get('course')||undefined).catch(e=>status(e.message,true));
+const aiPreferences=await chrome.storage.local.get(['ai_preferences','qwen_preferences']);
+const preferredProvider=aiPreferences.ai_preferences?.activeProvider || (aiPreferences.qwen_preferences?'qwen':'nemotron');
+if(Object.hasOwn(PROVIDERS,preferredProvider))$('engine').value=preferredProvider;
+selectionInfo();
 aiStatus().catch(()=>{$('ai-status').textContent='Open AI settings to connect';});

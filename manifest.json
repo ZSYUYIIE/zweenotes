@@ -1,7 +1,7 @@
 {
   "name": "ZweeNotes — NUS Cheatsheet Studio",
-  "description": "Turn NUS Canvas materials into source-linked revision notes and editable one-page cheatsheets with Qwen.",
-  "version": "0.2.0",
+  "description": "Turn NUS Canvas materials into source-linked notes and editable one-page cheatsheets with Nemotron or Qwen.",
+  "version": "0.2.1",
   "manifest_version": 3,
   "minimum_chrome_version": "138",
   "icons": {
@@ -74,7 +74,8 @@
     "https://dashscope.aliyuncs.com/*",
     "https://dashscope-us.aliyuncs.com/*",
     "https://cn-hongkong.dashscope.aliyuncs.com/*",
-    "https://*.maas.aliyuncs.com/*"
+    "https://*.maas.aliyuncs.com/*",
+    "https://integrate.api.nvidia.com/*"
   ],
   "content_security_policy": {
     "extension_pages": "script-src 'self'; object-src 'self'; worker-src 'self';"

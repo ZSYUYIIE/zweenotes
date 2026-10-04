@@ -2,7 +2,7 @@
 
 ## Product boundary
 
-NUS-first Chrome extension: organize the user's Canvas materials, derive reusable knowledge points with their Qwen API account, and compose an editable one-page revision sheet. Course structure comes from Canvas. Activity type (lecture/tutorial/lab/reference) is independent of source format (Canvas text/PDF/notes/transcript). A tutorial or lab never needs a video to belong in the library.
+NUS-first Chrome extension: organize the user's Canvas materials, derive reusable knowledge points with their Nemotron or Qwen API account, and compose an editable one-page revision sheet. Course structure comes from Canvas. Activity type (lecture/tutorial/lab/reference) is independent of source format (Canvas text/PDF/notes/transcript). A tutorial or lab never needs a video to belong in the library.
 
 The original style is inspired by the dense multi-column revision sheets commonly shared by NUS students: A4 landscape, four columns, serif body text, compact sans-serif topic headings, thin separators, equations, methods, pitfalls and small source markers. This is not an official NUS or Studocu template. No Studocu document content or branding is copied.
 
@@ -13,9 +13,9 @@ flowchart LR
   Panel --> Parse
   Parse --> Library["IndexedDB course library"]
   Library --> Job["Studio tab: resumable chunk job"]
-  Key["Session-only Qwen key"] --> Job
-  Job --> Qwen["Alibaba Model Studio API"]
-  Qwen --> Validate["Validate JSON + supplied reference IDs"]
+  Key["Session-only provider keys"] --> Job
+  Job --> AI["NVIDIA / Alibaba API"]
+  AI --> Validate["Validate JSON + supplied reference IDs"]
   Validate --> Atoms["Knowledge points + provenance + review flag"]
   Atoms --> Select["Scope / emphasis / trouble topics / budget"]
   Select --> Editor["Editable revision blocks"]
@@ -36,7 +36,9 @@ flowchart LR
 | `scripts/importers.js` | PDF text extraction using bundled PDF.js; page and transcript-cue locators |
 | `scripts/core.js` | Course source normalization, bounded chunks, extractive notes, point ranking and sheet schema |
 | `scripts/storage.js` | IndexedDB persistence of courses, sources, chunk results and sheets |
-| `scripts/qwen.js` | Restricted official endpoints, session credentials, JSON request and response validation |
+| `scripts/providers.js` | Provider definitions, restricted official endpoints, isolated session credentials and model validation |
+| `scripts/ai.js` | Shared prompts, provider-specific structured requests, cancellation and response validation |
+| `scripts/qwen.js` | Legacy Qwen compatibility wrapper |
 | `scripts/pipeline.js` | Sequential chunk generation, durable successful results, cancellation and resume |
 | `studio.*` | Source scope, knowledge browsing, review, editing, personal trouble topics, page layout and print |
 | `scripts/render.js` | Safe text/code/table rendering and bundled KaTeX math; no raw HTML execution |
@@ -47,7 +49,7 @@ flowchart LR
 - **Course**: `id = nus:{CanvasCourseId}` (or UUID for manually created courses), `name`, `canvasId`, `modules`, `outlineUpdatedAt`, `troubleTopics`. Course names, weeks and topics are never hardcoded to one student's enrollment. Data belongs to the Chrome extension profile; use separate Chrome profiles for different people.
 - **Source**: UUID, `courseId`, `revision`, `title`, `format`, `activity`, optional `week`, sanitized Canvas URL, `segments[]`. Each segment carries an ID and a page/section/timestamp locator.
 - **Knowledge point**: UUID, `sourceId`, `kind`, `title`, `summary`, `details`, priority 1–3, `references[]`, engine and `needsReview`. Types: concept/formula/algorithm/pattern/pitfall. Source IDs are validated against the actual request; this checks provenance structure, not factual correctness.
-- **Chunk result**: course/source IDs, successful atoms and creation time. Cache key includes schema version, source ID/revision, chunk number, Qwen endpoint and model. Credentials are never part of a cache record. A cached result is reused even if a new key is entered for the same model and source.
+- **Chunk result**: course/source IDs, successful atoms and creation time. Cache key includes schema and prompt versions, provider, source ID/revision, chunk number, endpoint and model. Credentials are never part of a cache record. A cached result is reused even if a new key is entered for the same model and source.
 - **Sheet**: course ID, title, source index, all selected editable blocks, omitted count, page geometry and timestamps. Blocks can contain a user-added local raster diagram. Edits and review flags apply to that sheet; cached AI knowledge remains the original extraction.
 
 Source content is immutable after import. Reimport revised material to create a new revision. Scope is selected sources: one lecture, a week, or a course. Trouble topics receive highest rank, then source coverage and priority/emphasis. If the point budget is smaller than the number of sources or trouble points, full coverage cannot be guaranteed. Identical title/body candidates are deduplicated. The knowledge browser exposes unselected points instead of discarding them.
@@ -58,15 +60,17 @@ Course detection uses the current URL and visible breadcrumb/title. Explicit mod
 
 Capture imports a selection or the current `.user_content` study container. It does not crawl hidden course data, other students' replies, submissions or quizzes automatically. Panopto is supplementary recording context and an existing download route. VTT/SRT transcripts must currently be supplied by the user; automatic caption retrieval and video transcription are future work.
 
-## Qwen jobs and credentials
+## AI jobs and credentials
 
-Qwen is the default summarizer. The user enters their own key in settings, chooses a matching model/region, and grants host access from an explicit click. The request goes directly to an allowlisted official Alibaba endpoint with `credentials: omit` and redirects rejected. No ZweeNotes backend, account, analytics or provider key is shipped.
+NVIDIA Nemotron is the default for new installations; existing Qwen preferences are preserved. The user chooses a provider, enters their own key/model and grants exact-origin host access from an explicit click. NVIDIA uses only `https://integrate.api.nvidia.com/v1`; Qwen accepts supported official Alibaba regional/workspace endpoints. Requests use `credentials: omit` and reject redirects. No ZweeNotes backend, account, analytics or developer key is shipped.
 
-Only `chrome.storage.session` stores the key; the default trusted-context access level is kept. Model and base URL persist without the key. Source text, course/material title, activity and locators are sent only when generating with Qwen. Region/account terms and API billing belong to the user's Alibaba account. Diagrams are local and are not sent to the text model.
+The default NVIDIA model is `nvidia/nemotron-3.5-lightning-30b-a3b`. Nemotron Super is an alternate selectable model, not live-tested here. Provider keys are stored separately and never fall back across providers. Saving settings sends no inference; the optional connection test sends a short original definition.
+
+Only `chrome.storage.session` stores the key; the default trusted-context access level is kept. Model and base URL persist without the key. Source text, course/material title, activity and locators are sent only when generating with the selected provider. Service terms, usage limits and any billing belong to the user's provider account. Diagrams are local and are not sent to the text model.
 
 Jobs run in a full extension tab so an MV3 worker timeout does not terminate long processing. Keep Studio open during generation. Each request has a 90-second timeout, input chunks are approximately 11,000 characters, and a run is limited to 80 chunks. Successful chunks commit before the next request. Failure/cancellation can be resumed by selecting the same sources/model; failed chunks are requested again. No automatic paid retries. Concurrent Studio tabs may duplicate in-flight requests; use one Studio editor per course. Closing a tab cannot commit an unfinished request.
 
-The model receives source text as untrusted reference data and is asked for JSON with only supplied segment IDs. Runtime validation rejects invalid structures, unknown references and truncated responses. All AI points start as needing review. Source snippets are available for human comparison. A valid citation cannot guarantee an accurate summary, formula or inferred method.
+The model receives source text as untrusted reference data and is asked for JSON with only supplied segment IDs. NVIDIA requests use a strict JSON schema requiring nonempty references chosen from the actual segment IDs; Qwen uses JSON-object mode. Thinking is disabled through each provider's supported request setting. Point limits adapt to source length to reduce repetition. Runtime validation rejects invalid structures, unknown references and truncated responses. All AI points start as needing review. Source snippets are available for human comparison. A valid citation cannot guarantee an accurate summary, formula or inferred method.
 
 ## One-page rendering
 
@@ -87,10 +91,15 @@ Import limits: 20 MB per file, 300 PDF pages, 350,000 extracted characters per m
 3. Optional cloud service: authenticated tenant-scoped jobs, secret storage, per-user budgets, object storage, progress events and deletion controls. Transcription/OCR jobs run on durable backend workers, never in the MV3 service worker. BYOK direct mode can remain available.
 4. Other institutions: separate LMS adapters returning the same course/module/source contract; include institution/tenant identity in every course key. Layout and knowledge generation remain shared.
 
+## Verification
+
+See [TESTING.md](TESTING.md). The production adapter passed three live NVIDIA examples, 13 unit checks and isolated browser checks with mocked responses. Valid source references do not establish factual accuracy. Actual Canvas account behavior, full-course PDFs and final printer output remain unverified.
+
 ## References
 
 - [Canvas modules API](https://developerdocs.instructure.com/services/canvas/resources/modules): read-only module and item discovery.
 - [Alibaba Model Studio regions](https://www.alibabacloud.com/help/en/model-studio/regions/) and [compatible base URLs](https://help.aliyun.com/en/model-studio/base-url): matching workspace/region endpoints.
+- [NVIDIA Nemotron Lightning API](https://build.nvidia.com/nvidia/nemotron-3.5-lightning-30b-a3b) and [structured output settings](https://docs.nvidia.com/nim/large-language-models/2.0.10/get-started/advanced/get-started-nemotron-3.5-lightning.html): hosted provider and model configuration.
 - [Qwen structured output](https://www.alibabacloud.com/help/en/model-studio/qwen-structured-output): JSON-mode contract.
 - [PDF.js examples](https://mozilla.github.io/pdf.js/examples/) and [KaTeX options](https://katex.org/docs/options): local parsing and safe formula rendering.
 - [Public NUS cheatsheet example on Studocu](https://www.studocu.com/sg/document/national-university-of-singapore/introduction-to-operating-systems/cs2106-cheatsheet-final-cheat-sheet/40386876): visual/product reference only; its text is not included.

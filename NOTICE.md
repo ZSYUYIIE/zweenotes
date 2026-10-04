@@ -10,3 +10,5 @@ Modifications made on 2026-09-24 include support for additional Panopto regional
 This modified work is distributed under GPL-3.0. See `LICENSE`.
 
 The 0.2.0 development changes made on 2026-09-30 add a persistent course library, read-only Canvas module discovery, local text/PDF/subtitle imports, user-configured Qwen summaries, knowledge-point provenance, a trouble-topic ledger, an editable A4 cheatsheet studio and bundled local rendering dependencies. Qwen generation sends selected source text directly to the user's configured Alibaba Model Studio endpoint. See `PRIVACY.md` and `THIRD_PARTY.md`.
+
+The 0.2.1 development changes made on 2026-10-05 add NVIDIA Nemotron alongside Qwen, separate provider keys and caches, strict NVIDIA structured outputs, explicit connection testing and integration checks. No developer API key is included in the distributed extension.
